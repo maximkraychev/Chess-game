@@ -1,6 +1,6 @@
-import { Component, OnDestroy } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Subscription } from 'rxjs';
+import { filter, fromEvent, Subscription, tap } from 'rxjs';
 
 import { ChessBoard } from '../../chess-logic/chess-board.js';
 import { CheckState, Color, Coords, FENChar, GameHistory, LastMove, MoveList, MoveType, SafeSquares, pieceImagePaths } from '../../chess-logic/models.js';
@@ -15,7 +15,7 @@ import { FENConverter } from '../../chess-logic/FENConverter.js';
   templateUrl: './chess-board.component.html',
   styleUrl: './chess-board.component.css'
 })
-export class ChessBoardComponent implements OnDestroy {
+export class ChessBoardComponent implements OnInit, OnDestroy {
   public pieceImagePaths = pieceImagePaths;
 
   protected chessBoard = new ChessBoard();
@@ -64,6 +64,30 @@ export class ChessBoardComponent implements OnDestroy {
   protected subscriptions$ = new Subscription();
 
   constructor(protected chessBoardService: ChessBoardService) { };
+
+  ngOnInit(): void {
+    const keyEventSubscription$: Subscription = fromEvent<KeyboardEvent>(document, 'keyup')
+      .pipe(
+        filter(event => event.key === 'ArrowRight' || event.key === 'ArrowLeft'),
+        tap(event => {
+          switch (event.key) {
+            case 'ArrowRight':
+              if (this.gameHistoryPointer === this.gameHistory.length - 1) return;
+              this.gameHistoryPointer++;
+              break;
+            case 'ArrowLeft':
+              if (this.gameHistoryPointer === 0) return;
+              this.gameHistoryPointer--;
+              break;
+          }
+
+          this.showPreviousPosition(this.gameHistoryPointer);
+        })
+      )
+      .subscribe();
+
+      this.subscriptions$.add(keyEventSubscription$);
+  }
 
   ngOnDestroy(): void {
     this.subscriptions$.unsubscribe();
@@ -229,9 +253,9 @@ export class ChessBoardComponent implements OnDestroy {
   // It play the sound base of the move type of last move 
   public moveSound(moveType: Set<MoveType>): void {
     let moveSound: HTMLAudioElement | undefined;
-  
+
     if (moveType.has(MoveType.BasicMove)) moveSound = this.soundInstances[MoveType.BasicMove];
-    
+
     if (moveType.has(MoveType.Promotion)) moveSound = this.soundInstances[MoveType.Promotion];
     else if (moveType.has(MoveType.Capture)) moveSound = this.soundInstances[MoveType.Capture];
     else if (moveType.has(MoveType.Castling)) moveSound = this.soundInstances[MoveType.Castling];

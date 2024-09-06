@@ -24,7 +24,8 @@ export class ComputerModeComponent extends ChessBoardComponent implements OnInit
     And if is computer move will do the request for next move to StockfishAPI. 
     After that manually will start the process of updating the board with the new move.
   */
-  ngOnInit(): void {
+  override ngOnInit(): void {
+    super.ngOnInit();
     // It will manage the board rotation depending what the player have chosen at the config modal
     const computerConfSubscription: Subscription = this.stockfishService.computerConfiguration$.subscribe({
       next: (computerConfiguration) => {
@@ -63,6 +64,7 @@ export class ComputerModeComponent extends ChessBoardComponent implements OnInit
   }
 
   override ngOnDestroy(): void {
+    super.ngOnDestroy();  
     this.subscriptions$.unsubscribe();
   }
 }
