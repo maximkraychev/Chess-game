@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 
 import { ChessBoard } from '../../chess-logic/chess-board.js';
-import { CheckState, Color, Coords, FENChar, GameHistory, LastMove, MoveList, SafeSquares, pieceImagePaths } from '../../chess-logic/models.js';
+import { CheckState, Color, Coords, FENChar, GameHistory, LastMove, MoveList, MoveType, SafeSquares, pieceImagePaths } from '../../chess-logic/models.js';
 import { SelectedSquare } from './models.js';
 import { ChessBoardService } from './chess-board.service.js';
 import { FENConverter } from '../../chess-logic/FENConverter.js';
@@ -25,6 +25,8 @@ export class ChessBoardComponent implements OnDestroy {
   private pieceSafeSquare: Coords[] = [];
   private lastMove: LastMove | undefined = this.chessBoard.lastMove;
   private checkState: CheckState = this.chessBoard.checkState;
+
+  private soundInstances = this.chessBoardService.soundInstances;
 
   public get moveList(): MoveList {
     return this.chessBoard.moveList;
@@ -161,8 +163,13 @@ export class ChessBoardComponent implements OnDestroy {
   protected updateBoard(prevX: number, prevY: number, newX: number, newY: number, promotedPiece: FENChar | null): void {
     this.chessBoard.move(prevX, prevY, newX, newY, promotedPiece);
     this.chessBoardView = this.chessBoard.chessBoardView;
-    this.checkState = this.chessBoard.checkState;
-    this.lastMove = this.chessBoard.lastMove;
+
+    /* 
+      Update current component state for lastMove and checkState properties from chessBoard 
+      Play the sound for last move 
+    */
+    this.markLastMoveAndCheckState(this.chessBoard.lastMove, this.chessBoard.checkState);
+
     this.unmarkingPreviouslySelectedAndSafeSquares();
     this.chessBoardService.chessBoardState$.next(this.chessBoard.boardAsFEN);
     this.gameHistoryPointer++;
@@ -182,6 +189,17 @@ export class ChessBoardComponent implements OnDestroy {
     this.unmarkingPreviouslySelectedAndSafeSquares();
   }
 
+  public markLastMoveAndCheckState(lastMove: LastMove | undefined, checkState: CheckState): void {
+    this.lastMove = lastMove;
+    this.checkState = checkState;
+
+    if (this.lastMove) {
+      this.moveSound(this.lastMove.moveType)
+    } else {
+      this.moveSound(new Set<MoveType>([MoveType.BasicMove]));
+    }
+  }
+
   // It will be run called every time when a square is clicked
   public move(x: number, y: number): void {
     this.selectingPiece(x, y);
@@ -198,8 +216,29 @@ export class ChessBoardComponent implements OnDestroy {
   public showPreviousPosition(moveIndex: number): void {
     const { board, checkState, lastMove } = this.gameHistory[moveIndex];
     this.chessBoardView = board;
-    this.checkState = checkState;
-    this.lastMove = lastMove;
+
+    /*
+      Update current component state for lastMove and checkState properties based on selected move from gameHistory 
+      Play the sound for last move 
+    */
+    this.markLastMoveAndCheckState(lastMove, checkState);
+
     this.gameHistoryPointer = moveIndex;
+  }
+
+  // It play the sound base of the move type of last move 
+  public moveSound(moveType: Set<MoveType>): void {
+    let moveSound: HTMLAudioElement | undefined;
+  
+    if (moveType.has(MoveType.BasicMove)) moveSound = this.soundInstances[MoveType.BasicMove];
+    
+    if (moveType.has(MoveType.Promotion)) moveSound = this.soundInstances[MoveType.Promotion];
+    else if (moveType.has(MoveType.Capture)) moveSound = this.soundInstances[MoveType.Capture];
+    else if (moveType.has(MoveType.Castling)) moveSound = this.soundInstances[MoveType.Castling];
+
+    if (moveType.has(MoveType.CheckMate)) moveSound = this.soundInstances[MoveType.CheckMate];
+    if (moveType.has(MoveType.Check)) moveSound = this.soundInstances[MoveType.Check];
+
+    moveSound?.play();
   }
 }
